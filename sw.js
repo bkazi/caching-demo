@@ -2,7 +2,7 @@ importScripts('cache-manager.js');
 
 const VERSION = '1';
 const staticCache = `caches-v${VERSION}`;
-const staticAssets = ['index.html', 'index.css', 'index.js'];
+const staticAssets = ['/index.html', '/index.css', '/index.js'];
 const dynamicCache = `dynamicCache`;
 let cachedAssets;
 
@@ -38,18 +38,17 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method === 'POST') goToNetworkNoCache(event);
-  else {
-    const url = new URL(event.request.url);
-    if (staticAssets.includes(url.pathname) || staticAssets.includes(url.href)) {
-      event.respondWith(caches.open(staticCache).then((cache) => {
-          return cache.match(event.request);
-      }));
-    } else if (imageTest.test(url.pathname)) { // test for images
-      handleImage(event);
-    } else { // ¯\_(ツ)_/¯
-      goToNetworkNoCache(event);
-    }
+  const url = new URL(event.request.url);
+  if (url.pathname === '/') {
+    caches.open(staticCache).then((cache) => {
+        return cache.match('/index.html');
+    })
+  } else if (staticAssets.includes(url.pathname) || staticAssets.includes(url.href)) {
+    event.respondWith(caches.match(event.request));
+  } else if (imageTest.test(url.pathname)) { // test for images
+    handleImage(event);
+  } else { // ¯\_(ツ)_/¯
+    goToNetworkNoCache(event);
   }
 });
 
@@ -58,39 +57,34 @@ function goToNetworkNoCache(event) {
 }
 
 function handleImage(event) {
-  event.respondWith(
-    fetch(event.request)
-    .then((networkResponse) => {
-      caches.open(dynamicCache).then((cache) => {
-        const url = new URL(event.request.url);
-        cache.put(event.request, networkResponse)
-        .then(() => {
-          getDb(imageDb).then((db) => {
-            setTimestampsForUrl(db, url.href, Date.now());
-            expireEntries(db, 10, 300, Date.now())
-              .then((extraUrls) => {
-              if (extraUrls.length == 0) return;
-              extraUrls.map((url) => cache.delete(url));
-              })
-              .catch(console.error);
-          });
-        });
-      });
-      return networkResponse.clone();
-    })
-    .catch(function() {
-      return caches.match(event.request).then((response) => {
-        getDb(imageDb).then((db) => {
-          updateUsedTimestampForUrl(db, url.href, Date.now());
-          expireEntries(db, 10, 300, Date.now())
-            .then((extraUrls) => {
-            if (extraUrls.length == 0) return;
-            extraUrls.map((url) => cache.delete(url));
-            })
-            .catch(console.error);
-        });
-        return response;
-      });
-    })
-  );
+  const url = new URL(event.request.url);
+  event.respondWith((async function() {
+    try {
+      const cacheResponse = await caches.match(event.request);
+      let networkResponse;
+      const db = await getDb(imageDb);
+
+      if (cacheResponse) {
+        updateUsedTimestampForUrl(db, url.href, Date.now());
+      } else {
+        networkResponse = await fetch(event.request);
+        const cache = await caches.open(dynamicCache);
+        await cache.put(event.request, networkResponse.clone());
+        setTimestampsForUrl(db, url.href, Date.now());
+      }
+      return cacheResponse || networkResponse;
+    }
+    catch (err) {
+      console.error(err);
+      return new Response(null, {status: 404});
+    }
+  })());
+
+  event.waitUntil((async function() {
+    const db = await getDb(imageDb);
+    const cache = await caches.open(dynamicCache);
+    const extraUrls = await expireEntries(db, 10, 300, Date.now());
+    if (extraUrls.length == 0) return;
+    return Promise.all(extraUrls.map((url) => cache.delete(url)));
+  })());
 }
