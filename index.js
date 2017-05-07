@@ -17,7 +17,7 @@ const addPictures = () => {
         img.onload = () => {
             grid.appendChild(img);
         };
-        img.src = `/imgs/${item}-min.jpg`;
+        img.src = `imgs/${item}-min.jpg`;
     });
 };
 
