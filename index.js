@@ -26,7 +26,7 @@ const addPictures = () => {
             img.onload = () => {
                 grid.appendChild(img);
             };
-            img.src = item.link;
+            img.src = item.link.replace(/^http:\/\//i, 'https://');
         });
         page++;
     })
