@@ -61,33 +61,35 @@ function handleImage(event) {
   event.respondWith(
     fetch(event.request)
     .then((networkResponse) => {
-      const url = new URL(event.request.url);
-      return caches.open(dynamicCache).then((cache) => {
-        cache.put(event.request, networkResponse.clone());
-        return getDb(imageDb).then((db) => {
+      caches.open(dynamicCache).then((cache) => {
+        const url = new URL(event.request.url);
+        cache.put(event.request, networkResponse)
+        .then(() => {
+          getDb(imageDb).then((db) => {
             setTimestampsForUrl(db, url.href, Date.now());
             expireEntries(db, 10, 300, Date.now())
-                .then((extraUrls) => {
-                if (extraUrls.length == 0) return;
-                extraUrls.map((url) => cache.delete(url));
-                })
-                .catch(console.error);
-            return networkResponse;
+              .then((extraUrls) => {
+              if (extraUrls.length == 0) return;
+              extraUrls.map((url) => cache.delete(url));
+              })
+              .catch(console.error);
+          });
         });
       });
+      return networkResponse.clone();
     })
     .catch(function() {
       return caches.match(event.request).then((response) => {
-        return getDb(imageDb).then((db) => {
-            updateUsedTimestampForUrl(db, url.href, Date.now());
-            expireEntries(db, 20, 24*60*60*60, Date.now())
-                .then((extraUrls) => {
-                if (extraUrls.length == 0) return;
-                extraUrls.map((url) => cache.delete(url));
-                })
-                .catch(console.error);
-            return response;
+        getDb(imageDb).then((db) => {
+          updateUsedTimestampForUrl(db, url.href, Date.now());
+          expireEntries(db, 10, 300, Date.now())
+            .then((extraUrls) => {
+            if (extraUrls.length == 0) return;
+            extraUrls.map((url) => cache.delete(url));
+            })
+            .catch(console.error);
         });
+        return response;
       });
     })
   );
