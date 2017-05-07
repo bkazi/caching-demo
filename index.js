@@ -1,9 +1,7 @@
 'use strict';
 
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js', {
-        scope: 'caching-demo',
-    })
+    navigator.serviceWorker.register('sw.js')
 
 }
 
