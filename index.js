@@ -1,3 +1,12 @@
+'use strict';
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js', {
+        scope: 'caching-demo',
+    })
+
+}
+
 const clientId = '57efb635002b823';
 let page = 0;
 
