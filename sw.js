@@ -2,7 +2,7 @@ importScripts('cache-manager.js');
 
 const VERSION = '1';
 const staticCache = `caches-v${VERSION}`;
-const staticAssets = ['/index.html', '/index.css', '/index.js'];
+const staticAssets = ['index.html', 'index.css', 'index.js'];
 const dynamicCache = `dynamicCache`;
 let cachedAssets;
 
@@ -41,9 +41,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.pathname === '/') {
     caches.open(staticCache).then((cache) => {
-        return cache.match('/index.html');
+        return cache.match('index.html');
     })
-  } else if (staticAssets.includes(url.pathname) || staticAssets.includes(url.href)) {
+  } else if (staticAssets.includes(url.pathname.substring(1))) {
     event.respondWith(caches.match(event.request));
   } else if (imageTest.test(url.pathname)) { // test for images
     handleImage(event);
