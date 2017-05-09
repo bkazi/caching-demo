@@ -70,7 +70,7 @@ function handleImage(event) {
         networkResponse = await fetch(event.request);
         const cache = await caches.open(dynamicCache);
         await cache.put(event.request, networkResponse.clone());
-        setTimestampsForUrl(db, url.href, Date.now());
+        await setTimestampsForUrl(db, url.href, Date.now());
       }
       return cacheResponse || networkResponse;
     }
@@ -81,10 +81,16 @@ function handleImage(event) {
   })());
 
   event.waitUntil((async function() {
-    const db = await getDb(imageDb);
-    const cache = await caches.open(dynamicCache);
-    const extraUrls = await expireEntries(db, 10, 300, Date.now());
-    if (extraUrls.length == 0) return;
+    let extraUrls;
+    let cache;
+    try {
+      const db = await getDb(imageDb);
+      cache = await caches.open(dynamicCache);
+      extraUrls = await expireEntries(db, 10, 300, Date.now());
+      if (extraUrls.length == 0) return;
+    } catch (err) {
+      console.log(err);
+    }
     return Promise.all(extraUrls.map((url) => cache.delete(url)));
   })());
 }
